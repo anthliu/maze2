@@ -13,7 +13,7 @@ GHOST = 6
 APPLE = 7
 
 CHARS = {
-    EMPTY: 'o',
+    EMPTY: ' ',
     WALL: 'w',
     PLAYER: 'p',
     TREASURE: 't',
@@ -21,6 +21,16 @@ CHARS = {
     DOOR: 'd',
     GHOST: 'g',
     APPLE: 'a',
+}
+COLORS = {
+    EMPTY: [255, 255, 255],
+    WALL: [44, 42, 60],
+    PLAYER: [105, 105, 105],
+    KEY: [135, 206, 250],
+    DOOR: [152, 251, 152],
+    TREASURE: [255, 255, 0],
+    APPLE: [250, 128, 114],
+    GHOST: [25,25,112],
 }
 CHAR_LOOKUP = {c: idx for idx, c in CHARS.items()}
 
@@ -39,8 +49,27 @@ class Maze(object):
         else:
             self.latent = latent
 
+    def render(self, mode='human'):
+        if mode == 'human':
+            result = '\n'.join(''.join(CHARS[c] for c in row) for row in self.grid)
+        elif mode == 'grid':
+            H, W = self.grid.shape
+            result = np.zeros((H, W, N_ENTITIES))
+            flat = result.reshape(H * W, -1)
+            flat[np.arange(H * W), self.grid.reshape(-1).view(dtype=int)] = 1
+        elif mode == 'rgb':
+            H, W = self.grid.shape
+            result = np.zeros((H, W, 3))
+            for i in range(H):
+                for j in range(W):
+                    result[i, j] = COLORS[self.grid[i, j]]
+        return result
+
     def _elem(self, pos):
         return self.grid[pos[0], pos[1]]
+
+    def _set_elem(self, pos, elem):
+        self.grid[pos[0], pos[1]] = elem
 
     def _move(self, pos, direction):
         return (pos[0] + DIRS[direction][0], pos[1] + DIRS[direction][1])
@@ -58,10 +87,23 @@ class Maze(object):
                 yield new_pos, d
 
     def sketch_solution(self):
-        return self._sketch_solution(TREASURE)
+        sol = self._sketch_solution(TREASURE)
+        if sol is not None:
+            return sol
 
-    def _sketch_solution(self, target, has_key=False):
-        pos = self.latent[PLAYER]
+        key_sol = self._sketch_solution(KEY)
+        if key_sol is not None:
+            final_sol = self._sketch_solution(TREASURE, start_pos=self.latent[KEY], has_key=True)
+            if final_sol is not None:
+                return key_sol + final_sol
+
+        return None
+
+    def _sketch_solution(self, target, start_pos=None, has_key=False):
+        if start_pos is None:
+            pos = self.latent[PLAYER]
+        else:
+            pos = start_pos
         target_pos = self.latent[target]
         visited = {pos}
 
@@ -105,7 +147,7 @@ class Maze(object):
 
     @staticmethod
     def from_carray(c_grid):
-        grid = np.zeros(c_grid.shape)
+        grid = np.zeros(c_grid.shape, dtype=np.int)
         special_map = {}
         for i in range(grid.shape[0]):
             for j in range(grid.shape[1]):
@@ -122,14 +164,124 @@ class Maze(object):
 
         return Maze(grid, latent=latent)
 
+class MazeEnv(object):
+    def __init__(self, s_grid, max_t=50, render_mode='grid'):
+        self.c_grid = string_to_carray(s_grid)
+        self.max_t = max_t
+        self.render_mode = render_mode
+        self.terminated = True
+
+    def render(self):
+        return self.maze.render(mode=self.render_mode)
+
+    def reset(self):
+        self.t = 0
+        self.episode_reward = 0
+        self.has_key = False
+        self.terminated = False
+
+        self.maze = Maze.from_carray(self.c_grid)
+        return self.render()
+
+    def step(self, d):
+        assert 0 <= d < ACTIONS, f'invalid action: {d}'
+        assert not self.terminated, 'episode is terminated'
+
+        cur_pos = self.maze.latent[PLAYER]
+        candidate_pos = self.maze._move(cur_pos, d)
+        new_elem = self.maze._elem(candidate_pos)
+
+        reward = 0
+        ghost_swap = False# edge case when collide with ghost
+        if new_elem == WALL:
+            pos = cur_pos
+        elif new_elem == EMPTY:
+            pos = candidate_pos
+        elif new_elem == PLAYER:
+            pos = cur_pos
+        elif new_elem == TREASURE:
+            reward = 4
+            self.maze.latent[TREASURE] = None
+            pos = candidate_pos
+            self.terminated = True
+        elif new_elem == KEY:
+            self.maze.latent[KEY] = None
+            pos = candidate_pos
+            self.has_key = True
+        elif new_elem == DOOR:
+            if self.has_key:
+                self.maze.latent[DOOR] = None
+                pos = candidate_pos
+            else:
+                pos = cur_pos
+        elif new_elem == GHOST:
+            ghost_swap = True
+            self.maze.latent[GHOST] = cur_pos
+            pos = candidate_pos
+        elif new_elem == APPLE:
+            reward = 1
+            self.maze.latent[APPLE] = None
+            pos = candidate_pos
+
+        self.maze.latent[PLAYER] = pos
+        self.maze._set_elem(cur_pos, EMPTY)
+        self.maze._set_elem(pos, PLAYER)
+
+        # ghost
+        if ghost_swap:
+            self.maze._set_elem(cur_pos, GHOST)
+        else:
+            ghost_pos = self.maze.latent[GHOST]
+            if ghost_pos is not None:
+                rand_d = np.random.randint(ACTIONS)
+                new_ghost_pos = self.maze._move(ghost_pos, rand_d)
+                if self.maze._elem(new_ghost_pos) == EMPTY:
+                    self.maze.latent[GHOST] = new_ghost_pos
+                    self.maze._set_elem(ghost_pos, EMPTY)
+                    self.maze._set_elem(new_ghost_pos, GHOST)
+
+        self.episode_reward += reward
+
+        self.t += 1
+        if self.t >= self.max_t:
+            self.terminated = True
+
+        return self.render(), reward, self.terminated, dict(self.maze.latent)
+
 def TEST(s):
     with open(s) as f:
         ss = f.read()
     maze = Maze.from_string(ss)
-    print(maze.grid)
+    print('TEST MAZE')
+    print(maze.render())
     print(maze.latent)
     print(maze.sketch_solution())
+    print('TEST MAZE ENV 1')
+    solution = None
+    while solution is None:
+        env = MazeEnv(ss, render_mode='human')
+        env.reset()
+        solution = env.maze.sketch_solution()
+        if solution is not None and len(solution) < 15:
+            solution = None
 
+    done = False
+    while not done:
+        #action = np.random.randint(ACTIONS)
+        action = solution.pop(0)
+        ob, r, done, info = env.step(action)
+        print(ob)
+
+    print('TEST MAZE ENV 2')
+    env = MazeEnv(ss, render_mode='human')
+    print(env.reset())
+    done = False
+    while not done:
+        #action = np.random.randint(ACTIONS)
+        action = int(input('>> '))
+        ob, r, done, info = env.step(action)
+        print(ob)
+        print(info)
 
 if __name__ == '__main__':
     TEST('conf/4doors.txt')

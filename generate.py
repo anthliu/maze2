@@ -7,7 +7,7 @@ from pseudo_policy import PseudoPolicy
 def main(args):
     with open(args.map) as f:
         grid_s = f.read()
-    env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode)
+    env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode, ghost_movement=args.ghost_movement)
     test_ob = env.reset()
 
     assert test_ob.shape[0] == 13 and test_ob.shape[1] == 13
@@ -86,6 +86,9 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--render_mode', default='grid', help='grid | rgb'
+    )
+    parser.add_argument(
+        '--ghost_movement', default='random', help='random | sway'
     )
     parser.add_argument(
         '--map', default='conf/4doors.txt', help='map text file'

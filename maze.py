@@ -166,10 +166,13 @@ class Maze(object):
         return Maze(grid, latent=latent)
 
 class MazeEnv(object):
-    def __init__(self, s_grid, max_t=50, render_mode='grid'):
+    def __init__(self, s_grid, max_t=50, render_mode='grid', ghost_movement='random'):
         self.c_grid = string_to_carray(s_grid)
         self.max_t = max_t
         self.render_mode = render_mode
+        self.ghost_movement = ghost_movement
+        assert self.ghost_movement in ['random', 'sway']
+        self.ghost_state = 0
         self.terminated = True
 
     def render(self):
@@ -234,7 +237,11 @@ class MazeEnv(object):
         else:
             ghost_pos = self.maze.latent[GHOST]
             if ghost_pos is not None:
-                rand_d = np.random.randint(ACTIONS)
+                if self.ghost_movement == 'random':
+                    rand_d = np.random.randint(ACTIONS)
+                else:
+                    self.ghost_state = (self.ghost_state + 1) % 10
+                    rand_d = 0 if self.ghost_state <= 4 else 2
                 new_ghost_pos = self.maze._move(ghost_pos, rand_d)
                 if self.maze._elem(new_ghost_pos) == EMPTY:
                     self.maze.latent[GHOST] = new_ghost_pos
@@ -255,6 +262,7 @@ def TEST(s):
     maze = Maze.from_string(ss)
     print('TEST MAZE')
     print(maze.render())
+    print(maze.render(mode='grid').argmax(2))
     print(maze.latent)
     print(maze.sketch_solution())
     print('TEST MAZE ENV 1')

@@ -37,6 +37,7 @@ CHAR_LOOKUP = {c: idx for idx, c in CHARS.items()}
 TRACK = {PLAYER, TREASURE, KEY, DOOR, GHOST, APPLE}
 ACTIONS = 5
 DIRS = [(0, 1), (-1, 0), (0, -1), (1, 0), (0, 0)]
+DUMMY_ACTION = 4
 
 def string_to_carray(ss):
     return np.array([list(row) for row in ss.strip().split('\n')])

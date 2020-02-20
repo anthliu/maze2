@@ -9,13 +9,14 @@ def main(args):
         grid_s = f.read()
     env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode)
     test_ob = env.reset()
+
+    assert test_ob.shape[0] == 13 and test_ob.shape[1] == 13
+    encode_pos = lambda pos: pos[0] * 13 + pos[1] if pos is not None else 0
     
     obs = np.zeros((args.n_episodes, args.max_t + 1) + test_ob.shape)
     rewards = np.zeros((args.n_episodes, args.max_t + 1))
     actions = np.zeros((args.n_episodes, args.max_t + 1))
-    agent_locs = np.zeros((args.n_episodes, args.max_t + 1, 2))
-    key_locs = np.zeros((args.n_episodes, args.max_t + 1, 2))
-    ghost_locs = np.zeros((args.n_episodes, args.max_t + 1, 2))
+    infos = np.zeros((args.n_episodes, args.max_t + 1, 3))
     seq_lengths = np.zeros(args.n_episodes)
 
     successes = 0
@@ -32,9 +33,9 @@ def main(args):
             if solution is not None and len(solution) >= 10:
                 break
         policy = PseudoPolicy(solution)
-        agent_locs[ep_idx, t] = env.maze.latent[maze.PLAYER]
-        key_locs[ep_idx, t] = env.maze.latent[maze.KEY]
-        ghost_locs[ep_idx, t] = env.maze.latent[maze.GHOST]
+        infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])
+        infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])
+        infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
         t += 1
 
         while not done:
@@ -45,9 +46,9 @@ def main(args):
 
             obs[ep_idx, t] = ob
             rewards[ep_idx, t] = r
-            agent_locs[ep_idx, t] = info[maze.PLAYER] if info[maze.PLAYER] is not None else (0, 0)
-            key_locs[ep_idx, t] = info[maze.KEY] if info[maze.KEY] is not None else (0, 0)
-            ghost_locs[ep_idx, t] = info[maze.GHOST] if info[maze.KEY] is not None else (0, 0)
+            infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])
+            infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])
+            infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
 
             if info[maze.KEY] is None:
                 key_pickup = True
@@ -68,9 +69,7 @@ def main(args):
         obs=obs,
         actions=actions,
         rewards=rewards,
-        agent_locs=agent_locs,
-        key_locs=key_locs,
-        ghost_locs=ghost_locs,
+        infos=infos,
         seq_lengths=seq_lengths
     )
 

@@ -44,6 +44,7 @@ def main(args):
             if r > 0:
                 success = True
 
+            actions[ep_idx, t - 1] = action
             obs[ep_idx, t] = ob
             rewards[ep_idx, t] = r
             infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])

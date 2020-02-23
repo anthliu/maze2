@@ -282,7 +282,7 @@ def TEST(s):
         print(ob)
 
     print('TEST MAZE ENV 2')
-    env = MazeEnv(ss, render_mode='human')
+    env = MazeEnv(ss, render_mode='human', ghost_movement='sway')
     print(env.reset())
     done = False
     while not done:

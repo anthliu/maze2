@@ -8,12 +8,12 @@ def main(args):
     with open(args.map) as f:
         grid_s = f.read()
     env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode, ghost_movement=args.ghost_movement)
-    test_ob = env.reset()
+    obs_shape = env.obs_shape
 
-    assert test_ob.shape[0] == 13 and test_ob.shape[1] == 13
+    assert obs_shape[0] == 13 and obs_shape[1] == 13
     encode_pos = lambda pos: pos[0] * 13 + pos[1] if pos is not None else 0
     
-    obs = np.zeros((args.n_episodes, args.max_t + 1) + test_ob.shape)
+    obs = np.zeros((args.n_episodes, args.max_t + 1) + obs_shape)
     rewards = np.zeros((args.n_episodes, args.max_t + 1))
     actions = np.zeros((args.n_episodes, args.max_t + 1))
     infos = np.zeros((args.n_episodes, args.max_t + 1, 3))
@@ -27,11 +27,9 @@ def main(args):
         success = False
         key_pickup = False
         t = 0
-        while True:
-            obs[ep_idx, t] = ob = env.reset()
-            solution = env.maze.sketch_solution()
-            if solution is not None and len(solution) >= 10:
-                break
+        obs[ep_idx, t] = ob = env.reset()
+        solution = env.solution
+
         policy = PseudoPolicy(solution)
         infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])
         infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])

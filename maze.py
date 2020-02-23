@@ -166,14 +166,16 @@ class Maze(object):
         return Maze(grid, latent=latent)
 
 class MazeEnv(object):
-    def __init__(self, s_grid, max_t=50, render_mode='grid', ghost_movement='random'):
+    def __init__(self, s_grid, max_t=50, render_mode='grid', ghost_movement='random', min_solution_len=10):
         self.c_grid = string_to_carray(s_grid)
         self.max_t = max_t
         self.render_mode = render_mode
         self.ghost_movement = ghost_movement
         assert self.ghost_movement in ['random', 'sway']
         self.ghost_state = 0
+        self.min_solution_len = min_solution_len
         self.terminated = True
+        self.maze = None
 
     def render(self):
         return self.maze.render(mode=self.render_mode)
@@ -184,8 +186,18 @@ class MazeEnv(object):
         self.has_key = False
         self.terminated = False
 
-        self.maze = Maze.from_carray(self.c_grid)
-        return self.render()
+        while True:
+            self.maze = Maze.from_carray(self.c_grid)
+            self.solution = self.maze.sketch_solution()
+            if self.solution is not None and len(self.solution) >= self.min_solution_len:
+                return self.render()
+
+    @property
+    def obs_shape(self):
+        if self.maze is None:
+            maze = Maze.from_carray(self.c_grid)
+            return maze.render(mode=self.render_mode).shape
+        return self.render().shape
 
     def step(self, d):
         assert 0 <= d < ACTIONS, f'invalid action: {d}'

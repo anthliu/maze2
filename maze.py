@@ -66,6 +66,8 @@ class Maze(object):
             for i in range(H):
                 for j in range(W):
                     result[i, j] = COLORS[self.grid[i, j]]
+        else:
+            raise Exception
         return result
 
     def _elem(self, pos):
@@ -177,6 +179,7 @@ def calculate_q(env_0, discount_factor=0.9, eps_terminal=1e-2):
         if not lstate.env.terminated:
             for action in range(ACTIONS):
                 env_cpy = deepcopy(lstate.env)
+                env_cpy.t = 0# reset time
                 _, reward, _, _ = env_cpy.step(action)
                 n_lstate = LState(env_cpy.get_id(), env_cpy, reward)
                 if n_lstate.state != lstate.state and all(n_lstate.state != other_lstate.state for other_lstate in neighbor_lstates):

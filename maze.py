@@ -253,6 +253,24 @@ class MazeEnv(object):
     def render(self):
         return self.maze.render(mode=self.render_mode)
 
+    def render_perms(self, n):
+        maze_cpy = deepcopy(self.maze)
+        H, W = maze_cpy.grid.shape
+        yield maze_cpy.render(mode=self.render_mode)
+        if maze_cpy.latent[GHOST]:
+            maze_cpy._set_elem(maze_cpy.latent[GHOST], EMPTY)
+        for _ in range(n - 1):
+            while True:
+                rand_pos = (
+                    np.random.randint(1, H - 1),
+                    np.random.randint(1, W - 1),
+                )
+                if maze_cpy._elem(rand_pos) == EMPTY:
+                    maze_cpy._set_elem(rand_pos, GHOST)
+                    yield maze_cpy.render(mode=self.render_mode)
+                    maze_cpy._set_elem(rand_pos, EMPTY)
+                    break
+
     def reset(self):
         self.t = 0
         self.episode_reward = 0
@@ -274,7 +292,6 @@ class MazeEnv(object):
             maze = Maze.from_carray(self.c_grid)
             return maze.render(mode=self.render_mode).shape
         return self.render().shape
-
 
     def step(self, d):
         assert 0 <= d < ACTIONS, f'invalid action: {d}'
@@ -387,6 +404,9 @@ def TEST(s):
         ob, r, done, info = env.step(action)
         print(ob)
         print(info)
+        for i, s in enumerate(env.render_perms(3)):
+            print(i, 'perm')
+            print(s)
 
 if __name__ == '__main__':
     TEST('conf/4doors.txt')

@@ -14,6 +14,10 @@ def main(args):
     encode_pos = lambda pos: pos[0] * 13 + pos[1] if pos is not None else 0
     
     obs = np.zeros((args.n_episodes, args.max_t + 1) + obs_shape)
+    if args.render_perms:
+        obs_perms = np.zeros((args.n_episodes, args.max_t + 1, 10) + obs_shape)
+    else:
+        obs_perms = None
     rewards = np.zeros((args.n_episodes, args.max_t + 1))
     actions = np.zeros((args.n_episodes, args.max_t + 1))
     infos = np.zeros((args.n_episodes, args.max_t + 1, 4))
@@ -28,6 +32,8 @@ def main(args):
         key_pickup = False
         t = 0
         obs[ep_idx, t] = ob = env.reset()
+        if obs_perms is not None:
+            obs_perms[ep_idx, t] = np.array(list(env.render_perms(10)))
         solution = env.solution
 
         policy = PseudoPolicy(solution)
@@ -45,6 +51,8 @@ def main(args):
 
             actions[ep_idx, t - 1] = action
             obs[ep_idx, t] = ob
+            if obs_perms is not None:
+                obs_perms[ep_idx, t] = np.array(list(env.render_perms(10)))
             rewards[ep_idx, t] = r
             infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])
             infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])
@@ -68,6 +76,7 @@ def main(args):
     np.savez(
         args.out,
         obs=obs,
+        obs_perms=obs_perms,
         actions=actions,
         rewards=rewards,
         infos=infos,
@@ -96,6 +105,9 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--max_t', type=int, default=50, help='max length of episode'
+    )
+    parser.add_argument(
+        '--render_perms', action='store_true', help='render permutation observations of each state'
     )
 
     args = parser.parse_args()

@@ -80,6 +80,12 @@ def main(args):
         actions=actions,
         rewards=rewards,
         infos=infos,
+        info_dict={
+            'agent': 0,
+            'key': 1,
+            'ghost': 2,
+            'q': 3
+        },
         seq_lengths=seq_lengths
     )
 

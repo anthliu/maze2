@@ -240,6 +240,7 @@ class MazeEnv(object):
         self.maze = None
         self.generate_q_values = generate_q_values
         self.q_values = None
+        self._color_shift = 0# for rgb_random render mode
 
     def get_id(self):
         latent = self.maze.latent
@@ -254,7 +255,15 @@ class MazeEnv(object):
         return ''.join(str(c) for c in result)
 
     def render(self):
-        return self.maze.render(mode=self.render_mode)
+        if self.render_mode != 'rgb_random':
+            return self.maze.render(mode=self.render_mode)
+
+        render = self.maze.render(mode='rgb')
+        if self._color_shift >= 1:
+            render[:, :, self._color_shift - 1] += 50
+            render = np.clip(render, 0, 255)
+
+        return render
 
     def render_perms(self, n):
         maze_cpy = deepcopy(self.maze)
@@ -280,6 +289,9 @@ class MazeEnv(object):
         self.has_key = False
         self.terminated = False
 
+        if self.render_mode == 'rgb_random':
+            self._color_shift = np.random.randint(4)
+
         while True:
             self.maze = Maze.from_carray(self.c_grid)
             self.solution = self.maze.sketch_solution()
@@ -292,9 +304,17 @@ class MazeEnv(object):
     @property
     def obs_shape(self):
         if self.maze is None:
-            maze = Maze.from_carray(self.c_grid)
-            return maze.render(mode=self.render_mode).shape
+            self.maze = Maze.from_carray(self.c_grid)
         return self.render().shape
+
+    @property
+    def latent(self):
+        infos = dict(self.maze.latent)
+        if self.generate_q_values and self.q_values is not None:
+            infos['q'] = self.q_values[self.get_id()]
+        if self.render_mode == 'rgb_random':
+            infos['color_shift'] = self._color_shift
+        return infos
 
     def step(self, d):
         assert 0 <= d < ACTIONS, f'invalid action: {d}'
@@ -366,10 +386,7 @@ class MazeEnv(object):
         if self.t >= self.max_t:
             self.terminated = True
 
-        infos = dict(self.maze.latent)
-        if self.generate_q_values and self.q_values is not None:
-            infos['q'] = self.q_values[self.get_id()]
-        return self.render(), reward, self.terminated, infos
+        return self.render(), reward, self.terminated, self.latent
 
 def TEST(s):
     with open(s) as f:

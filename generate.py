@@ -20,7 +20,7 @@ def main(args):
         obs_perms = None
     rewards = np.zeros((args.n_episodes, args.max_t + 1))
     actions = np.zeros((args.n_episodes, args.max_t + 1))
-    infos = np.zeros((args.n_episodes, args.max_t + 1, 4))
+    infos = np.zeros((args.n_episodes, args.max_t + 1, 5))
     seq_lengths = np.zeros(args.n_episodes)
 
     successes = 0
@@ -32,6 +32,7 @@ def main(args):
         key_pickup = False
         t = 0
         obs[ep_idx, t] = ob = env.reset()
+        info = env.latent
         if obs_perms is not None:
             obs_perms[ep_idx, t] = np.array(list(env.render_perms(10)))
         solution = env.solution
@@ -40,7 +41,8 @@ def main(args):
         infos[ep_idx, t, 0] = encode_pos(env.maze.latent[maze.PLAYER])
         infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])
         infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
-        infos[ep_idx, t, 3] = env.q_values[env.get_id()]
+        infos[ep_idx, t, 3] = info['q']
+        infos[ep_idx, t, 4] = info.get('color_shift', 0)
         t += 1
 
         while not done:
@@ -58,6 +60,7 @@ def main(args):
             infos[ep_idx, t, 1] = encode_pos(env.maze.latent[maze.KEY])
             infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
             infos[ep_idx, t, 3] = info['q']
+            infos[ep_idx, t, 4] = info.get('color_shift', 0)
 
             if info[maze.KEY] is None:
                 key_pickup = True
@@ -84,7 +87,8 @@ def main(args):
             'agent': 0,
             'key': 1,
             'ghost': 2,
-            'q': 3
+            'q': 3,
+            'color_shift': 4
         },
         seq_lengths=seq_lengths
     )
@@ -101,7 +105,7 @@ if __name__ == '__main__':
         '-o', '--out', default='trajectories.npz', help='outfile'
     )
     parser.add_argument(
-        '--render_mode', default='grid', help='grid | rgb'
+        '--render_mode', default='grid', help='grid | rgb | rgb_random'
     )
     parser.add_argument(
         '--ghost_movement', default='random', help='random | sway'

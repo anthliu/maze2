@@ -266,21 +266,27 @@ class MazeEnv(object):
         return render
 
     def render_perms(self, n):
-        maze_cpy = deepcopy(self.maze)
-        H, W = maze_cpy.grid.shape
-        yield maze_cpy.render(mode=self.render_mode)
-        if maze_cpy.latent[GHOST]:
-            maze_cpy._set_elem(maze_cpy.latent[GHOST], EMPTY)
+        old_maze = deepcopy(self.maze)
+        H, W = self.maze.grid.shape
+        old_color_shift = self._color_shift
+        self._color_shift = 0
+        yield self.render()
+        if self.maze.latent[GHOST]:
+            self.maze._set_elem(self.maze.latent[GHOST], EMPTY)
         for _ in range(n - 1):
             while True:
                 rand_pos = (
                     np.random.randint(1, H - 1),
                     np.random.randint(1, W - 1),
                 )
-                if maze_cpy._elem(rand_pos) == EMPTY:
-                    maze_cpy._set_elem(rand_pos, GHOST)
-                    yield maze_cpy.render(mode=self.render_mode)
-                    maze_cpy._set_elem(rand_pos, EMPTY)
+                if self.maze._elem(rand_pos) == EMPTY:
+                    self.maze._set_elem(rand_pos, GHOST)
+                    if self.render_mode == 'rgb_random':
+                        self._color_shift = np.random.randint(4)
+                    render = self.render()
+                    self.maze = deepcopy(old_maze)
+                    self._color_shift = old_color_shift
+                    yield render
                     break
 
     def reset(self):

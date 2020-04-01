@@ -34,7 +34,7 @@ def main(args):
         obs[ep_idx, t] = ob = env.reset()
         info = env.latent
         if obs_perms is not None:
-            obs_perms[ep_idx, t] = np.array(list(env.render_perms(10)))
+            obs_perms[ep_idx, t] = np.array(list(env.render_perms(10, args.flip_perms)))
         solution = env.solution
 
         policy = PseudoPolicy(solution)
@@ -118,6 +118,9 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--render_perms', action='store_true', help='render permutation observations of each state'
+    )
+    parser.add_argument(
+        '--flip_perms', action='store_true', help='randomly flip and rotate perms'
     )
 
     args = parser.parse_args()

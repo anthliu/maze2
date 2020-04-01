@@ -41,6 +41,15 @@ ACTIONS = 5
 DIRS = [(0, 1), (-1, 0), (0, -1), (1, 0), (0, 0)]
 DUMMY_ACTION = 4
 
+def _random_transformation(im):
+    t = np.random.randint(3)
+    if t == 0:
+        return im.transpose(1, 0, 2)
+    elif t == 1:
+        return np.flip(im, 0)
+    elif t == 2:
+        return np.flip(im, 1)
+
 def string_to_carray(ss):
     return np.array([list(row) for row in ss.strip().split('\n')])
 
@@ -265,7 +274,7 @@ class MazeEnv(object):
 
         return render
 
-    def render_perms(self, n):
+    def render_perms(self, n, flips=False):
         old_maze = deepcopy(self.maze)
         H, W = self.maze.grid.shape
         old_color_shift = self._color_shift
@@ -286,6 +295,8 @@ class MazeEnv(object):
                     render = self.render()
                     self.maze = deepcopy(old_maze)
                     self._color_shift = old_color_shift
+                    if flips:
+                        render = _random_transformation(_random_transformation(render))
                     yield render
                     break
 

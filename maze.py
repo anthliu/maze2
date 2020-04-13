@@ -183,6 +183,8 @@ Transition = collections.namedtuple('Transition', ['state', 'neighbors', 'value'
 LState = collections.namedtuple('LState', ['state', 'env', 'reward'])
 
 def calculate_q(env_0, discount_factor=0.9, eps_terminal=1e-2):
+    env_0 = deepcopy(env_0)
+    env_0.persistant_key = False
     def get_neighbors(lstate):
         neighbor_lstates = []
         if not lstate.env.terminated:
@@ -232,7 +234,7 @@ def calculate_q(env_0, discount_factor=0.9, eps_terminal=1e-2):
     return dict(zip(transition_table.keys(), q_1))
 
 class MazeEnv(object):
-    def __init__(self, s_grid, c_grid=None, max_t=50, render_mode='grid', ghost_movement='random', min_solution_len=10, generate_q_values=False):
+    def __init__(self, s_grid, c_grid=None, max_t=50, render_mode='grid', ghost_movement='random', min_solution_len=10, generate_q_values=False, persistant_key=False):
         if c_grid is None:
             self.c_grid = string_to_carray(s_grid)
         else:
@@ -250,6 +252,8 @@ class MazeEnv(object):
         self.generate_q_values = generate_q_values
         self.q_values = None
         self._color_shift = 0# for rgb_random render mode
+        self.persistant_key = persistant_key
+        self.regenerate_key = False
 
     def get_id(self):
         latent = self.maze.latent
@@ -316,6 +320,8 @@ class MazeEnv(object):
                 if self.generate_q_values:
                     self.q_values = None
                     self.q_values = calculate_q(self)
+
+                self.key_start_pos = self.latent[KEY]
                 return self.render()
 
     @property
@@ -331,6 +337,7 @@ class MazeEnv(object):
             infos['q'] = self.q_values[self.get_id()]
         if self.render_mode == 'rgb_random':
             infos['color_shift'] = self._color_shift
+        infos['has_key'] = self.has_key
         return infos
 
     def step(self, d):
@@ -358,6 +365,8 @@ class MazeEnv(object):
             self.maze.latent[KEY] = None
             pos = candidate_pos
             self.has_key = True
+            if self.persistant_key:
+                self.regenerate_key = True
         elif new_elem == DOOR:
             if self.has_key:
                 self.maze.latent[DOOR] = None
@@ -376,6 +385,11 @@ class MazeEnv(object):
         self.maze.latent[PLAYER] = pos
         self.maze._set_elem(cur_pos, EMPTY)
         self.maze._set_elem(pos, PLAYER)
+
+        if self.regenerate_key:
+            if self.maze._elem(self.key_start_pos) == EMPTY:
+                self.maze._set_elem(self.key_start_pos, KEY)
+                self.regenerate_key = False
 
         # ghost
         if GHOST in self.maze.latent:
@@ -431,7 +445,7 @@ def TEST(s):
         print(ob)
 
     print('TEST MAZE ENV 2')
-    env = MazeEnv(ss, render_mode='human', ghost_movement='random', generate_q_values=True)
+    env = MazeEnv(ss, render_mode='human', ghost_movement='random', generate_q_values=True, persistant_key=True)
     env.reset()
     print(env.reset())
     done = False
@@ -441,9 +455,11 @@ def TEST(s):
         ob, r, done, info = env.step(action)
         print(ob)
         print(info)
+        '''
         for i, s in enumerate(env.render_perms(3)):
             print(i, 'perm')
             print(s)
+        '''
 
 if __name__ == '__main__':
     TEST('conf/4doors.txt')

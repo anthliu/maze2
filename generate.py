@@ -7,7 +7,7 @@ from pseudo_policy import PseudoPolicy
 def main(args):
     with open(args.map) as f:
         grid_s = f.read()
-    env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode, ghost_movement=args.ghost_movement, generate_q_values=True)
+    env = maze.MazeEnv(grid_s, max_t=args.max_t, render_mode=args.render_mode, ghost_movement=args.ghost_movement, generate_q_values=True, persistant_key=args.persistant_key)
     obs_shape = env.obs_shape
 
     assert obs_shape[0] == 13 and obs_shape[1] == 13
@@ -20,7 +20,7 @@ def main(args):
         obs_perms = None
     rewards = np.zeros((args.n_episodes, args.max_t + 1))
     actions = np.zeros((args.n_episodes, args.max_t + 1))
-    infos = np.zeros((args.n_episodes, args.max_t + 1, 5))
+    infos = np.zeros((args.n_episodes, args.max_t + 1, 6))
     seq_lengths = np.zeros(args.n_episodes)
 
     successes = 0
@@ -43,6 +43,7 @@ def main(args):
         infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
         infos[ep_idx, t, 3] = info['q']
         infos[ep_idx, t, 4] = info.get('color_shift', 0)
+        infos[ep_idx, t, 5] = info['has_key']
         t += 1
 
         while not done:
@@ -61,6 +62,7 @@ def main(args):
             infos[ep_idx, t, 2] = encode_pos(env.maze.latent[maze.GHOST])
             infos[ep_idx, t, 3] = info['q']
             infos[ep_idx, t, 4] = info.get('color_shift', 0)
+            infos[ep_idx, t, 5] = info['has_key']
 
             if info[maze.KEY] is None:
                 key_pickup = True
@@ -88,7 +90,8 @@ def main(args):
             'key': 1,
             'ghost': 2,
             'q': 3,
-            'color_shift': 4
+            'color_shift': 4,
+            'persistant_key': 5
         },
         seq_lengths=seq_lengths
     )
@@ -109,6 +112,9 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         '--ghost_movement', default='random', help='random | sway'
+    )
+    parser.add_argument(
+        '--persistant_key', action='store_true', help='keep key on grid after spawning'
     )
     parser.add_argument(
         '--map', default='conf/4doors.txt', help='map text file'

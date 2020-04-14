@@ -284,9 +284,9 @@ class MazeEnv(object):
         old_color_shift = self._color_shift
         self._color_shift = 0
         yield self.render()
-        if self.maze.latent[GHOST]:
-            self.maze._set_elem(self.maze.latent[GHOST], EMPTY)
         for _ in range(n - 1):
+            if self.maze.latent[GHOST]:
+                self.maze._set_elem(self.maze.latent[GHOST], EMPTY)
             while True:
                 rand_pos = (
                     np.random.randint(1, H - 1),
@@ -455,11 +455,9 @@ def TEST(s):
         ob, r, done, info = env.step(action)
         print(ob)
         print(info)
-        '''
         for i, s in enumerate(env.render_perms(3)):
             print(i, 'perm')
             print(s)
-        '''
 
 if __name__ == '__main__':
     TEST('conf/4doors.txt')
